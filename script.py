@@ -9,12 +9,14 @@ import requests
 
 # constant definitions
 API_KEY = os.getenv('TORN_API_KEY_ENV')
-FILE_NAME = "output.csv"
+SCORES_FILE_NAME = "output.csv"
 MASTER_FILE_NAME = "all_attacks.csv"
-LOST = 'lost'
+ASSISTS_KEY = 'assist'
+
 DEFENDER_NAME = 'defender_name'
 DEFENDER_ID = 'defender_id'
-GAINED = 'gained'
+POINTS_LOST = 'points_lost'
+POINTS_GAINED = 'points_gained'
 RESPECT = 'respect'
 CHAIN_BONUS = 'chain_bonus'
 MODIFIERS = 'modifiers'
@@ -29,8 +31,6 @@ ATTACKS_KEY = 'attacks'
 OUTSIDE_ATTACKS_KEY = 'outside_attacks'
 NAME_KEY = 'name'
 MODIFIER_KEY = "modifiers"
-RESPECT_GAINED_KEY = "gained"
-RESPECT_LOST_KEY = "lost"
 CODE = "code"
 TIMESTAMP_ENDED = "timestamp_ended"
 ATTACKER_FACTION = "attacker_faction"
@@ -79,10 +79,8 @@ MODIFIER_ATTRIBUTES = [
     OVERSEAS,
     CHAIN_BONUS
 ]
-# all attacks
-attacks_master_list = []
 
-HEADER = ['id', 'name', 'attacks', 'outside_attacks', 'gained', 'lost']
+HEADER = ['player_id', NAME_KEY, ATTACKS_KEY, OUTSIDE_ATTACKS_KEY, POINTS_GAINED, POINTS_LOST, ASSISTS_KEY]
 
 extra_calls = [',applications', ',armor', ',armorynews', ',attacknews',
                ',basic', ',boosters', ',cesium', ',chain', ',chainreport',
@@ -107,30 +105,30 @@ def visualize_report():
     df = pd.read_csv('output.csv')
 
     # Sort the dataframe by the "attacks" column
-    df = df.sort_values(by='attacks', ascending=False)
+    df = df.sort_values(by=ATTACKS_KEY, ascending=False)
     plt.figure(figsize=(12, 6))
     # bars = plt.bar(df['name'], df['attacks'], df['lost'], df['outside_attacks'])
 
     # Create a bar chart of the "attacks" column
-    plt.bar(df['name'], df['attacks'], width=0.5)
+    plt.bar(df[NAME_KEY], df[ATTACKS_KEY], width=0.5)
     plt.xticks(rotation=90)
     plt.xlabel('Name')
     plt.ylabel('Attacks')
     plt.title('Attacks by Name')
 
     # Get the bleeders
-    bleeders = df[df['lost'] > df['gained']].sort_values(by='lost', ascending=False)
+    bleeders = df[df[POINTS_LOST] > df[POINTS_GAINED]].sort_values(by=POINTS_LOST, ascending=False)
 
     # Get names and lost values
-    names = bleeders['name']
-    lost = bleeders['lost']
+    names = bleeders[NAME_KEY]
+    lost = bleeders[POINTS_LOST]
 
     # Create the bar graph
     plt.figure(figsize=(12, 6))
     plt.bar(names, lost, width=0.5)
     plt.xticks(rotation=90)
     plt.xlabel('Name')
-    plt.ylabel('Lost')
+    plt.ylabel('Points Lost')
     plt.title('Bleeders')
     plt.show()
 
@@ -156,13 +154,21 @@ def get_timestamp(start_day, start_hour, start_min, month, year):
 
 
 def save_summary(scores):
-    with open(FILE_NAME, 'w', newline='') as csvfile:
+    if os.path.exists(SCORES_FILE_NAME):
+        os.remove(SCORES_FILE_NAME)
+    with open(SCORES_FILE_NAME, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(HEADER)
-        for member in scores:
-            writer.writerow([member, scores[member][NAME_KEY], scores[member][ATTACKS_KEY],
-                             scores[member][OUTSIDE_ATTACKS_KEY], scores[member][RESPECT_GAINED_KEY],
-                             scores[member][RESPECT_LOST_KEY]])
+        for member_id in scores:
+            member_row = scores[member_id]
+            writer.writerow([member_id,
+                             member_row[NAME_KEY],
+                             member_row[ATTACKS_KEY],
+                             member_row[OUTSIDE_ATTACKS_KEY],
+                             round(member_row[POINTS_GAINED], 0),
+                             round(member_row[POINTS_LOST], 0),
+                             member_row[ASSISTS_KEY]
+                             ])
 
 
 ### LOAD THE LIST OF ATTACKS ###
@@ -220,11 +226,14 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
         # increment counter
         count += 1
         _id = attack_obj[index_of(CODE)]
-        if _id == "033fd2e28fb1242f0e5f3d081daebf58":
+        if _id == "02d94d42fcd2e043c70e1ef5099011ac":
             print("*****")
         is_rw_attack = is_ranked_war_attack(attack_obj)
         attacker_fac_name = attack_obj[index_of(ATTACKER_FACTION_NAME)]
         defender_fac_name = attack_obj[index_of(DEFENDER_FACTION_NAME)]
+        attacker_name = attack_obj[index_of(ATTACKER_NAME)]
+        defender_name = attack_obj[index_of(DEFENDER_NAME)]
+        result = attack_obj[index_of(RESULT)]
 
         print(f"count: {count} id: {_id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}, "
               f"is_rw_attack : {is_rw_attack}")
@@ -237,39 +246,61 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
             # create entry if not exists
             if attacker_id not in scores.keys():
                 print(f"id: {_id} registered as outside hit")
-                attacker_name = attack_obj[index_of(ATTACKER_NAME)]
-                scores[attacker_id] = {NAME_KEY: attacker_name, ATTACKS_KEY: 0, OUTSIDE_ATTACKS_KEY: 0, GAINED: 0,
-                                       LOST: 0}
+                scores[attacker_id] = {
+                    NAME_KEY: attacker_name,
+                    ATTACKS_KEY: 0,
+                    OUTSIDE_ATTACKS_KEY: 0,
+                    POINTS_GAINED: 0,
+                    POINTS_LOST: 0,
+                    ASSISTS_KEY: 0
+                }
             # update existing record
             scores[attacker_id][OUTSIDE_ATTACKS_KEY] += 1
             outgoing += 1
             continue
 
-        # attack is against enemy faction and made by hero faction
-        if defender_fac_name == enemy_faction_name and is_rw_attack:
+        # hero attacked enemy - assists do not show up as is_rw_attack
+        if defender_fac_name == enemy_faction_name and (is_rw_attack or result == 'Assist'):
 
             # create a new record if not encountered before
             if attack_obj[index_of(ATTACKER_ID)] not in scores.keys():
                 print(f"id: {_id} registered as rw attack")
-                scores[attack_obj[index_of(ATTACKER_ID)]] = {'name': attack_obj[index_of(ATTACKER_NAME)], 'attacks': 0,
-                                                             'outside_attacks': 0, 'gained': 0, 'lost': 0}
+                scores[attack_obj[index_of(ATTACKER_ID)]] = {
+                    NAME_KEY: attacker_name,
+                    ATTACKS_KEY: 0,
+                    OUTSIDE_ATTACKS_KEY: 0,
+                    POINTS_GAINED: 0,
+                    POINTS_LOST: 0,
+                    ASSISTS_KEY: 0
+                }
             # update existing record
             if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
-                scores[attack_obj[index_of(ATTACKER_ID)]][GAINED] += eval(attack_obj[index_of(RESPECT)])
-                scores[attack_obj[index_of(ATTACKER_ID)]][ATTACKS_KEY] += 1
+                attacker_row = scores[attack_obj[index_of(ATTACKER_ID)]]
+
+                attacker_row[POINTS_GAINED] += eval(attack_obj[index_of(RESPECT)])
+                attacker_row[ATTACKS_KEY] += 1
+                if result == 'Assist':
+                    attacker_row[ASSISTS_KEY] += 1
                 outgoing += 1
             continue
 
-        # attack is against hero faction and made by target enemy faction
+        # enemy attacked hero
         if defender_fac_name == hero_faction_name and is_rw_attack:
             # create a new record if not encountered before
             if attack_obj[index_of(DEFENDER_ID)] not in scores.keys():
                 print(f"id: {_id} registered as rw defend")
-                scores[attack_obj[index_of(DEFENDER_ID)]] = {'name': attack_obj[index_of(DEFENDER_NAME)], 'attacks': 0,
-                                                             'outside_attacks': 0, 'gained': 0, 'lost': 0}
+                scores[attack_obj[index_of(DEFENDER_ID)]] = {
+                    NAME_KEY: defender_name,
+                    ATTACKS_KEY: 0,
+                    OUTSIDE_ATTACKS_KEY: 0,
+                    POINTS_GAINED: 0,
+                    POINTS_LOST: 0,
+                    ASSISTS_KEY: 0
+                }
             # update existing record
             if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
-                scores[attack_obj[index_of(DEFENDER_ID)]][LOST] += eval(attack_obj[index_of(RESPECT)])
+                defender_row = scores[attack_obj[index_of(DEFENDER_ID)]]
+                defender_row[POINTS_LOST] += eval(attack_obj[index_of(RESPECT)])
                 incoming += 1
                 continue
 
@@ -329,7 +360,8 @@ def generate_report(hero_faction_name, enemy_faction_name, duration_txt, api_key
 
     start_stamp, end_stamp = get_start_time_end_time(duration_txt)
     print(f"start_stamp:{start_stamp} - end_stamp:{end_stamp}")
-    # step 1 - call torn api and get a list of all the attacks & received during the RW period OR load from previously written file
+    # step 1 - call torn api and get a list of all the attacks & received during the RW period OR load from
+    # previously written file
     attacks_master_list = load_list()
     if attacks_master_list is None:
         attacks_master_list = fetch_attacks(end_stamp, start_stamp, api_key)
