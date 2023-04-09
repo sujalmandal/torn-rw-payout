@@ -197,8 +197,8 @@ def save_list(list):
                 attack[STEALTHED], attack[RESPECT], attack[CHAIN],
                 attack[RAID], attack[RANKED_WAR], attack[RESPECT_GAIN], attack[RESPECT_LOSS],
                 # modifiers
-                attack[FAIR_FIGHT], attack[WAR], attack[RETALIATION], attack[GROUP_ATTACK],
-                attack[OVERSEAS], attack[CHAIN_BONUS]
+                attack[MODIFIER_KEY][FAIR_FIGHT], attack[MODIFIER_KEY][WAR], attack[MODIFIER_KEY][RETALIATION],
+                attack[MODIFIER_KEY][GROUP_ATTACK], attack[MODIFIER_KEY][OVERSEAS], attack[MODIFIER_KEY][CHAIN_BONUS]
             ])
 
 
