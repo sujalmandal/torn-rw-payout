@@ -312,6 +312,7 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
 
 #### CALL API TO LOAD ATTACKS ###
 def fetch_attacks(end_stamp, start_stamp, api_key):
+    attacks_master_list = []
     next_call_stamp = start_stamp
     processed_attack_records = []
     count = 0
