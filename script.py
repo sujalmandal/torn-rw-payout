@@ -99,7 +99,7 @@ def index_of(key):
 
 
 def index_of_mod(key):
-    return len(SELECTED_ATTACK_KEY) + MODIFIER_ATTRIBUTES.index(key)
+    return len(SELECTED_ATTACK_KEY) + MODIFIER_ATTRIBUTES.index(key) - 1
 
 
 def visualize_report():
@@ -148,14 +148,14 @@ def get_start_time_end_time(text):
 
 
 def is_ranked_war_attack(attack_obj):
-    return attack_obj[index_of(RANKED_WAR)] == 1
+    return eval(attack_obj[index_of(RANKED_WAR)]) == 1
 
 
 def get_timestamp(start_day, start_hour, start_min, month, year):
     return int(datetime(year, month, start_day, start_hour, start_min, tzinfo=timezone.utc).timestamp())
 
 
-def save_summary():
+def save_summary(scores):
     with open(FILE_NAME, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(HEADER)
@@ -219,57 +219,59 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
             continue
         # increment counter
         count += 1
-        id = attack_obj[index_of(CODE)]
+        _id = attack_obj[index_of(CODE)]
+        if _id == "033fd2e28fb1242f0e5f3d081daebf58":
+            print("*****")
+        is_rw_attack = is_ranked_war_attack(attack_obj)
         attacker_fac_name = attack_obj[index_of(ATTACKER_FACTION_NAME)]
         defender_fac_name = attack_obj[index_of(DEFENDER_FACTION_NAME)]
 
-        print(f"count: {count} id: {id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}")
+        print(f"count: {count} id: {_id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}, "
+              f"is_rw_attack : {is_rw_attack}")
 
         # outside hits
         if attacker_fac_name == hero_faction_name and defender_fac_name != enemy_faction_name:
             # create a new record if not encountered before
             attacker_id = attack_obj[index_of(ATTACKER_ID)]
+
+            # create entry if not exists
             if attacker_id not in scores.keys():
-                print(f"id: {id} registered as outside hit")
+                print(f"id: {_id} registered as outside hit")
                 attacker_name = attack_obj[index_of(ATTACKER_NAME)]
                 scores[attacker_id] = {NAME_KEY: attacker_name, ATTACKS_KEY: 0, OUTSIDE_ATTACKS_KEY: 0, GAINED: 0,
                                        LOST: 0}
-                # update existing record
-                scores[attacker_id][OUTSIDE_ATTACKS_KEY] += 1
-                outgoing += 1
-                continue
-
-        is_rw_attack = is_ranked_war_attack(attack_obj)
+            # update existing record
+            scores[attacker_id][OUTSIDE_ATTACKS_KEY] += 1
+            outgoing += 1
+            continue
 
         # attack is against enemy faction and made by hero faction
         if defender_fac_name == enemy_faction_name and is_rw_attack:
+
             # create a new record if not encountered before
             if attack_obj[index_of(ATTACKER_ID)] not in scores.keys():
-                print(f"id: {id} registered as rw attack")
+                print(f"id: {_id} registered as rw attack")
                 scores[attack_obj[index_of(ATTACKER_ID)]] = {'name': attack_obj[index_of(ATTACKER_NAME)], 'attacks': 0,
                                                              'outside_attacks': 0, 'gained': 0, 'lost': 0}
-                # update existing record
-                if attack_obj[index_of_mod(CHAIN_BONUS)] < 10:
-                    scores[attack_obj[index_of(ATTACKER_ID)]][GAINED] = scores[attack_obj[index_of(ATTACKER_ID)]][
-                                                                            GAINED] + attack_obj[index_of(RESPECT)]
-                    scores[attack_obj[index_of(ATTACKER_ID)]][ATTACKS_KEY] = scores[attack_obj[index_of(ATTACKER_ID)]][
-                                                                                 ATTACKS_KEY] + 1
-                    outgoing += 1
-                    continue
+            # update existing record
+            if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
+                scores[attack_obj[index_of(ATTACKER_ID)]][GAINED] += eval(attack_obj[index_of(RESPECT)])
+                scores[attack_obj[index_of(ATTACKER_ID)]][ATTACKS_KEY] += 1
+                outgoing += 1
+            continue
 
         # attack is against hero faction and made by target enemy faction
         if defender_fac_name == hero_faction_name and is_rw_attack:
             # create a new record if not encountered before
             if attack_obj[index_of(DEFENDER_ID)] not in scores.keys():
-                print(f"id: {id} registered as rw defend")
+                print(f"id: {_id} registered as rw defend")
                 scores[attack_obj[index_of(DEFENDER_ID)]] = {'name': attack_obj[index_of(DEFENDER_NAME)], 'attacks': 0,
                                                              'outside_attacks': 0, 'gained': 0, 'lost': 0}
-                # update existing record
-                if attack_obj[index_of_mod(CHAIN_BONUS)] < 10:
-                    scores[attack_obj[index_of(DEFENDER_ID)]][LOST] = scores[attack_obj[index_of(DEFENDER_ID)]][LOST] + \
-                                                                      attack_obj[index_of(RESPECT)]
-                    incoming += 1
-                    continue
+            # update existing record
+            if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
+                scores[attack_obj[index_of(DEFENDER_ID)]][LOST] += eval(attack_obj[index_of(RESPECT)])
+                incoming += 1
+                continue
 
     print(f'Total hits made: {outgoing}')
     print(f'Total hits received: {incoming}')
@@ -333,7 +335,8 @@ def generate_report(hero_faction_name, enemy_faction_name, duration_txt, api_key
         attacks_master_list = fetch_attacks(end_stamp, start_stamp, api_key)
         save_list(attacks_master_list)
     # step 2 - process attacks
-    process_attacks(hero_faction_name, enemy_faction_name, attacks_master_list)
+    scores = process_attacks(hero_faction_name, enemy_faction_name, attacks_master_list)
+    save_summary(scores)
 
 
 generate_report(
@@ -341,4 +344,4 @@ generate_report(
     enemy_faction_name="Drunk Squad",
     duration_txt="15:00:00 - 07/04/23 until 13:03:05 - 08/04/23",
     api_key=API_KEY)
-# visualize_report()
+visualize_report()
