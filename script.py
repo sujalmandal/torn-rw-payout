@@ -12,75 +12,38 @@ API_KEY = os.getenv('TORN_API_KEY_ENV')
 SCORES_FILE_NAME = "output.csv"
 MASTER_FILE_NAME = "all_attacks.csv"
 ASSISTS_KEY = 'assist'
-
-DEFENDER_NAME = 'defender_name'
-DEFENDER_ID = 'defender_id'
+ATTACKS_KEY = 'attacks'
+OUTSIDE_ATTACKS_KEY = 'outside_hits'
+NAME_KEY = 'player'
+BONUS_RESPECT_KEY = 'bonus_hit_respect'
 POINTS_LOST = 'points_lost'
 POINTS_GAINED = 'points_gained'
-RESPECT = 'respect'
-CHAIN_BONUS = 'chain_bonus'
-MODIFIERS = 'modifiers'
-ATTACKER_NAME = 'attacker_name'
-ATTACKER_ID = 'attacker_id'
-DEFENDER_FACTION = 'defender_faction'
-DEFENDER_FACTION_NAME = 'defender_factionname'
-ATTACKER_FACTION_NAME = 'attacker_factionname'
-RANKED_WAR = 'ranked_war'
+
+CODE = 'code'
 TIMESTAMP_STARTED = 'timestamp_started'
-ATTACKS_KEY = 'attacks'
-OUTSIDE_ATTACKS_KEY = 'outside_attacks'
-NAME_KEY = 'name'
-MODIFIER_KEY = "modifiers"
-CODE = "code"
-TIMESTAMP_ENDED = "timestamp_ended"
-ATTACKER_FACTION = "attacker_faction"
-ATTACKER_FACTIONNAME = "attacker_factionname"
-DEFENDER_FACTIONNAME = "defender_factionname"
-RESULT = "result"
-STEALTHED = "stealthed"
-CHAIN = "chain"
-RAID = "raid"
-RESPECT_GAIN = "respect_gain"
-RESPECT_LOSS = "respect_loss"
-FAIR_FIGHT = "fair_fight"
-WAR = "war"
-RETALIATION = "retaliation"
-GROUP_ATTACK = "group_attack"
-OVERSEAS = "overseas"
-
-SELECTED_ATTACK_KEY = [
-    CODE,
-    TIMESTAMP_STARTED,
-    TIMESTAMP_ENDED,
-    ATTACKER_ID,
-    ATTACKER_NAME,
-    ATTACKER_FACTION,
-    ATTACKER_FACTIONNAME,
-    DEFENDER_ID,
-    DEFENDER_NAME,
-    DEFENDER_FACTION,
-    DEFENDER_FACTIONNAME,
-    RESULT,
-    STEALTHED,
-    RESPECT,
-    CHAIN,
-    RAID,
-    RANKED_WAR,
-    RESPECT_GAIN,
-    RESPECT_LOSS,
-    MODIFIERS,
-]
-
-MODIFIER_ATTRIBUTES = [
-    FAIR_FIGHT,
-    WAR,
-    RETALIATION,
-    GROUP_ATTACK,
-    OVERSEAS,
-    CHAIN_BONUS
-]
-
-HEADER = ['player_id', NAME_KEY, ATTACKS_KEY, OUTSIDE_ATTACKS_KEY, POINTS_GAINED, POINTS_LOST, ASSISTS_KEY]
+TIMESTAMP_ENDED = 'timestamp_ended'
+ATTACKER_ID = 'attacker_id'
+ATTACKER_NAME = 'attacker_name'
+ATTACKER_FACTION = 'attacker_faction'
+ATTACKER_FACTIONNAME = 'attacker_factionname'
+DEFENDER_ID = 'defender_id'
+DEFENDER_NAME = 'defender_name'
+DEFENDER_FACTION = 'defender_faction'
+DEFENDER_FACTIONNAME = 'defender_factionname'
+RESULT = 'result'
+STEALTHED = 'stealthed'
+RESPECT = 'respect'
+CHAIN = 'chain'
+RAID = 'raid'
+RANKED_WAR = 'ranked_war'
+RESPECT_GAIN = 'respect_gain'
+RESPECT_LOSS = 'respect_loss'
+MODIFIERS_FAIR_FIGHT = 'modifiers_fair_fight'
+MODIFIERS_WAR = 'modifiers_war'
+MODIFIERS_RETALIATION = 'modifiers_retaliation'
+MODIFIERS_GROUP_ATTACK = 'modifiers_group_attack'
+MODIFIERS_OVERSEAS = 'modifiers_overseas'
+MODIFIERS_CHAIN_BONUS = 'modifiers_chain_bonus'
 
 extra_calls = [',applications', ',armor', ',armorynews', ',attacknews',
                ',basic', ',boosters', ',cesium', ',chain', ',chainreport',
@@ -92,12 +55,23 @@ extra_calls = [',applications', ',armor', ',armorynews', ',attacknews',
                ]
 
 
-def index_of(key):
-    return SELECTED_ATTACK_KEY.index(key)
+def json_to_csv(json_list, csv_filename):
+    # Get headers from the first dictionary in the list
+    headers = list(json_list[0].keys())
 
+    # Open a CSV file for writing
+    with open(csv_filename, "w", newline="") as csvfile:
+        # Create a CSV writer object
+        csv_writer = csv.writer(csvfile)
 
-def index_of_mod(key):
-    return len(SELECTED_ATTACK_KEY) + MODIFIER_ATTRIBUTES.index(key) - 1
+        # Write the header row
+        csv_writer.writerow(headers)
+
+        # Write the data rows
+        for record in json_list:
+            row = list(record.values())
+            csv_writer.writerow(row)
+    print(f"file with name {csv_filename} saved.")
 
 
 def visualize_report():
@@ -146,66 +120,43 @@ def get_start_time_end_time(text):
 
 
 def is_ranked_war_attack(attack_obj):
-    return eval(attack_obj[index_of(RANKED_WAR)]) == 1
+    return eval(attack_obj[RANKED_WAR]) == 1
 
 
 def get_timestamp(start_day, start_hour, start_min, month, year):
     return int(datetime(year, month, start_day, start_hour, start_min, tzinfo=timezone.utc).timestamp())
 
 
-def save_summary(scores):
-    if os.path.exists(SCORES_FILE_NAME):
-        os.remove(SCORES_FILE_NAME)
-    with open(SCORES_FILE_NAME, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(HEADER)
-        for member_id in scores:
-            member_row = scores[member_id]
-            writer.writerow([member_id,
-                             member_row[NAME_KEY],
-                             member_row[ATTACKS_KEY],
-                             member_row[OUTSIDE_ATTACKS_KEY],
-                             round(member_row[POINTS_GAINED], 0),
-                             round(member_row[POINTS_LOST], 0),
-                             member_row[ASSISTS_KEY]
-                             ])
+def flatten_json(json_record, separator='_', prefix=''):
+    flattened_record = {}
+
+    for key, value in json_record.items():
+        if isinstance(value, dict):
+            flattened_sub_record = flatten_json(value, separator, prefix=f"{prefix}{key}{separator}")
+            flattened_record.update(flattened_sub_record)
+        else:
+            flattened_record[f"{prefix}{key}"] = value
+
+    return flattened_record
+
+
+def csv_to_json(csv_filename):
+    # Read the CSV file and store the data in a list of dictionaries
+    with open(csv_filename, "r", newline="") as csvfile:
+        csv_reader = csv.DictReader(csvfile)
+        data = [row for row in csv_reader]
+    return data
 
 
 ### LOAD THE LIST OF ATTACKS ###
 def load_list():
     try:
-        with open("all_attacks.csv", "r") as file:
-            reader = csv.reader(file, delimiter=",")
-            my_list = list(reader)
+        with open(MASTER_FILE_NAME, "r"):
             print("loaded from previously cached file")
-            return my_list
+            return csv_to_json(MASTER_FILE_NAME)
     except FileNotFoundError:
         print("all_attacks.csv not found")
         return None
-
-
-### PERSIST THE ATTACKS ###
-def save_list(list):
-    print(f"total number of attacks (in + out)-> {len(list)}")
-    with open(MASTER_FILE_NAME, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        headers = SELECTED_ATTACK_KEY
-        headers.remove(MODIFIER_KEY)
-        headers.extend(MODIFIER_ATTRIBUTES)
-        writer.writerow(headers)
-        for attack in list:
-            writer.writerow([
-                # main attributes
-                attack[CODE], attack[TIMESTAMP_STARTED], attack[TIMESTAMP_ENDED],
-                attack[ATTACKER_ID], attack[ATTACKER_NAME], attack[ATTACKER_FACTION],
-                attack[ATTACKER_FACTIONNAME], attack[DEFENDER_ID], attack[DEFENDER_NAME],
-                attack[DEFENDER_FACTION], attack[DEFENDER_FACTIONNAME], attack[RESULT],
-                attack[STEALTHED], attack[RESPECT], attack[CHAIN],
-                attack[RAID], attack[RANKED_WAR], attack[RESPECT_GAIN], attack[RESPECT_LOSS],
-                # modifiers
-                attack[MODIFIER_KEY][FAIR_FIGHT], attack[MODIFIER_KEY][WAR], attack[MODIFIER_KEY][RETALIATION],
-                attack[MODIFIER_KEY][GROUP_ATTACK], attack[MODIFIER_KEY][OVERSEAS], attack[MODIFIER_KEY][CHAIN_BONUS]
-            ])
 
 
 ### PROCESS THE ATTACK ROWS ###
@@ -215,33 +166,29 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
     count = 0
     outgoing = 0
     incoming = 0
-    is_header = False
 
     scores = {}
 
     for attack_obj in master_list:
-        if is_header is False:
-            is_header = True
-            continue
-        # increment counter
         count += 1
-        _id = attack_obj[index_of(CODE)]
+        _id = attack_obj[CODE]
         if _id == "02d94d42fcd2e043c70e1ef5099011ac":
             print("*****")
         is_rw_attack = is_ranked_war_attack(attack_obj)
-        attacker_fac_name = attack_obj[index_of(ATTACKER_FACTION_NAME)]
-        defender_fac_name = attack_obj[index_of(DEFENDER_FACTION_NAME)]
-        attacker_name = attack_obj[index_of(ATTACKER_NAME)]
-        defender_name = attack_obj[index_of(DEFENDER_NAME)]
-        result = attack_obj[index_of(RESULT)]
+        attacker_fac_name = attack_obj[ATTACKER_FACTIONNAME]
+        defender_fac_name = attack_obj[DEFENDER_FACTIONNAME]
+        attacker_name = attack_obj[ATTACKER_NAME]
+        defender_name = attack_obj[DEFENDER_NAME]
+        result = attack_obj[RESULT]
 
         print(f"count: {count} id: {_id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}, "
               f"is_rw_attack : {is_rw_attack}")
 
         # outside hits
         if attacker_fac_name == hero_faction_name and defender_fac_name != enemy_faction_name:
+            outgoing += 1
             # create a new record if not encountered before
-            attacker_id = attack_obj[index_of(ATTACKER_ID)]
+            attacker_id = attack_obj[ATTACKER_ID]
 
             # create entry if not exists
             if attacker_id not in scores.keys():
@@ -252,62 +199,70 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
                     OUTSIDE_ATTACKS_KEY: 0,
                     POINTS_GAINED: 0,
                     POINTS_LOST: 0,
-                    ASSISTS_KEY: 0
+                    ASSISTS_KEY: 0,
+                    BONUS_RESPECT_KEY: 0
                 }
             # update existing record
             scores[attacker_id][OUTSIDE_ATTACKS_KEY] += 1
-            outgoing += 1
             continue
 
         # hero attacked enemy - assists do not show up as is_rw_attack
-        if defender_fac_name == enemy_faction_name and (is_rw_attack or result == 'Assist'):
-
+        if defender_fac_name == enemy_faction_name:
+            outgoing += 1
             # create a new record if not encountered before
-            if attack_obj[index_of(ATTACKER_ID)] not in scores.keys():
+            if attack_obj[ATTACKER_ID] not in scores.keys():
                 print(f"id: {_id} registered as rw attack")
-                scores[attack_obj[index_of(ATTACKER_ID)]] = {
+                scores[attack_obj[ATTACKER_ID]] = {
                     NAME_KEY: attacker_name,
                     ATTACKS_KEY: 0,
                     OUTSIDE_ATTACKS_KEY: 0,
                     POINTS_GAINED: 0,
                     POINTS_LOST: 0,
-                    ASSISTS_KEY: 0
+                    ASSISTS_KEY: 0,
+                    BONUS_RESPECT_KEY: 0
                 }
             # update existing record
-            if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
-                attacker_row = scores[attack_obj[index_of(ATTACKER_ID)]]
+            attacker_row = scores[attack_obj[ATTACKER_ID]]
+            attacker_row[ATTACKS_KEY] += 1
+            if eval(attack_obj[MODIFIERS_CHAIN_BONUS]) < 10:
+                attacker_row[POINTS_GAINED] += eval(attack_obj[RESPECT])
+            # count bonuses separately
+            else:
+                attacker_row[BONUS_RESPECT_KEY] += eval(attack_obj[RESPECT])
 
-                attacker_row[POINTS_GAINED] += eval(attack_obj[index_of(RESPECT)])
-                attacker_row[ATTACKS_KEY] += 1
-                if result == 'Assist':
-                    attacker_row[ASSISTS_KEY] += 1
-                outgoing += 1
+            if result == 'Assist':
+                attacker_row[ASSISTS_KEY] += 1
             continue
 
         # enemy attacked hero
         if defender_fac_name == hero_faction_name and is_rw_attack:
             # create a new record if not encountered before
-            if attack_obj[index_of(DEFENDER_ID)] not in scores.keys():
+            if attack_obj[DEFENDER_ID] not in scores.keys():
                 print(f"id: {_id} registered as rw defend")
-                scores[attack_obj[index_of(DEFENDER_ID)]] = {
+                scores[attack_obj[DEFENDER_ID]] = {
                     NAME_KEY: defender_name,
                     ATTACKS_KEY: 0,
                     OUTSIDE_ATTACKS_KEY: 0,
                     POINTS_GAINED: 0,
                     POINTS_LOST: 0,
-                    ASSISTS_KEY: 0
+                    ASSISTS_KEY: 0,
+                    BONUS_RESPECT_KEY: 0
                 }
             # update existing record
-            if eval(attack_obj[index_of_mod(CHAIN_BONUS)]) < 10:
-                defender_row = scores[attack_obj[index_of(DEFENDER_ID)]]
-                defender_row[POINTS_LOST] += eval(attack_obj[index_of(RESPECT)])
+            if eval(attack_obj[MODIFIERS_CHAIN_BONUS]) < 10:
+                defender_row = scores[attack_obj[DEFENDER_ID]]
+                defender_row[POINTS_LOST] += eval(attack_obj[RESPECT])
                 incoming += 1
                 continue
 
     print(f'Total hits made: {outgoing}')
     print(f'Total hits received: {incoming}')
 
-    return scores
+    output = []
+    for player_id in scores:
+        output.append(scores[player_id])
+
+    return output
 
 
 #### CALL API TO LOAD ATTACKS ###
@@ -341,8 +296,7 @@ def fetch_attacks(end_stamp, start_stamp, api_key):
                     processed_attack_records.append(attack_id)
                     # is_rw_attack = is_ranked_war_attack(attack_id, attacks_list)
                     # prepare a master list of all attacks
-                    attacks_master_list.append(
-                        {key: attack_obj[key] for key in SELECTED_ATTACK_KEY if key in attack_obj})
+                    attacks_master_list.append(flatten_json(attack_obj))
 
         except KeyError:
             print("No more attacks left to process")
@@ -366,10 +320,10 @@ def generate_report(hero_faction_name, enemy_faction_name, duration_txt, api_key
     attacks_master_list = load_list()
     if attacks_master_list is None:
         attacks_master_list = fetch_attacks(end_stamp, start_stamp, api_key)
-        save_list(attacks_master_list)
+        json_to_csv(attacks_master_list, MASTER_FILE_NAME)
     # step 2 - process attacks
     scores = process_attacks(hero_faction_name, enemy_faction_name, attacks_master_list)
-    save_summary(scores)
+    json_to_csv(scores, SCORES_FILE_NAME)
 
 
 generate_report(
@@ -377,4 +331,5 @@ generate_report(
     enemy_faction_name="Drunk Squad",
     duration_txt="15:00:00 - 07/04/23 until 13:03:05 - 08/04/23",
     api_key=API_KEY)
+
 visualize_report()
