@@ -5,13 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4b054124-383b-4430-ab00-aaa2c7912fd6" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/archives/Drunk Squad_all_attacks.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/output_formatted.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/rw_payout.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/all_attacks.csv" beforeDir="false" afterPath="$PROJECT_DIR$/all_attacks.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/output.csv" beforeDir="false" afterPath="$PROJECT_DIR$/output.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rw_payout.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/rw_payout.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/script.py" beforeDir="false" afterPath="$PROJECT_DIR$/script.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

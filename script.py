@@ -230,7 +230,7 @@ def process_payout(scores, budget):
         player[POINTS_LOST] = round(player[POINTS_LOST])
 
     total_paid = sum(player[PAYOUT_KEY] for player in scores)
-    print(f"total paid : {total_paid}")
+    print(f"total paid : {format_payout(total_paid)}")
 
 
 # PROCESS THE ATTACK ROWS
