@@ -1,3 +1,5 @@
+## Imports
+
 import csv
 import os
 import time
@@ -6,6 +8,8 @@ from datetime import timezone, datetime
 import matplotlib.pyplot as plt
 import pandas as pd
 import requests
+
+
 
 # constant definitions
 API_KEY = os.getenv('TORN_API_KEY_ENV')
@@ -105,52 +109,6 @@ def json_to_csv(json_list, csv_filename, sort_by=None, format_attribute=None, fo
     print(f"File with name {csv_filename} saved.")
 
 
-def table_scores(df):
-    # Plot the table
-    fig, ax = plt.subplots(figsize=(12, 5))
-    ax.axis('off')
-    ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
-    plt.show()
-
-
-def graph_top10(df):
-    # Get the top 10 players by points gained
-    top10 = df.sort_values(by=POINTS_GAINED, ascending=False).head(10)
-
-    # Get names and points gained values
-    names = top10[NAME_KEY]
-    points_gained = top10[POINTS_GAINED]
-
-    # Create the bar graph
-    plt.figure(figsize=(12, 6))
-    plt.bar(names, points_gained, width=0.5)
-    plt.xticks(rotation=90)
-    plt.xlabel('Name')
-    plt.ylabel('Points Gained')
-    plt.title('Top 10 Players by Points Gained')
-
-
-def bleeders_graph(_df):
-    # Sort the dataframe by the "attacks" column
-    df = _df.sort_values(by=ATTACKS_KEY, ascending=False)
-
-    # Get the bleeders
-    bleeders = df[df[POINTS_LOST] > df[POINTS_GAINED]].sort_values(by=POINTS_LOST, ascending=False)
-
-    # Get names and lost values
-    names = bleeders[NAME_KEY]
-    lost = bleeders[POINTS_LOST]
-
-    # Create the bar graph
-    plt.figure(figsize=(12, 6))
-    plt.bar(names, lost, width=0.5)
-    plt.xticks(rotation=90)
-    plt.xlabel('Name')
-    plt.ylabel('Points Lost')
-    plt.title('Bleeders')
-
-    plt.show()
-
 
 def get_start_time_end_time(text):
     # Extract start and end times
@@ -186,11 +144,11 @@ def flatten_json(json_record, separator='_', prefix=''):
 
 
 def format_payout(num):
-    if num >= 100000000:
-        return f"{num / 1000000:.0f}M"
-    elif num >= 1000000:
-        return f"{num / 1000000:.1f}M" if num % 1000000 != 0 else f"{num // 1000000}M"
-    elif num >= 100000:
+    if num >= 100_000_000:
+        return f"{num / 1_000_000:.0f}M"
+    elif num >= 1_000_000:
+        return f"{num / 1_000_000:.1f}M" if num % 1000000 != 0 else f"{num // 1000000}M"
+    elif num >= 100_000:
         return f"{num / 1000:.0f}k"
     else:
         return str(num)
@@ -255,8 +213,8 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
         defender_name = attack_obj[DEFENDER_NAME]
         result = attack_obj[RESULT]
 
-        print(f"count: {count} id: {_id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}, "
-              f"is_rw_attack : {is_rw_attack}")
+        # print(f"count: {count} id: {_id},  attacking fac : {attacker_fac_name}, defending fac : {defender_fac_name}, "
+        #       f"is_rw_attack : {is_rw_attack}")
 
         # outside hits
         if attacker_fac_name == hero_faction_name and defender_fac_name != enemy_faction_name:
@@ -266,7 +224,7 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
 
             # create entry if not exists
             if attacker_id not in scores.keys():
-                print(f"id: {_id} registered as outside hit")
+                # print(f"id: {_id} registered as outside hit")
                 scores[attacker_id] = {
                     NAME_KEY: attacker_name,
                     ATTACKS_KEY: 0,
@@ -285,7 +243,7 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
             outgoing += 1
             # create a new record if not encountered before
             if attack_obj[ATTACKER_ID] not in scores.keys():
-                print(f"id: {_id} registered as rw attack")
+                # print(f"id: {_id} registered as rw attack")
                 scores[attack_obj[ATTACKER_ID]] = {
                     NAME_KEY: attacker_name,
                     ATTACKS_KEY: 0,
@@ -312,7 +270,7 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
         if defender_fac_name == hero_faction_name and is_rw_attack:
             # create a new record if not encountered before
             if attack_obj[DEFENDER_ID] not in scores.keys():
-                print(f"id: {_id} registered as rw defend")
+                # print(f"id: {_id} registered as rw defend")
                 scores[attack_obj[DEFENDER_ID]] = {
                     NAME_KEY: defender_name,
                     ATTACKS_KEY: 0,
@@ -337,6 +295,7 @@ def process_attacks(hero_faction_name, enemy_faction_name, master_list):
         output.append(scores[player_id])
 
     return output
+
 
 
 # CALL API TO LOAD ATTACKS
@@ -402,6 +361,59 @@ def generate_report(hero_faction_name, enemy_faction_name, duration_txt, budget,
     json_to_csv(scores, SCORES_FILE_NAME, sort_by=PAYOUT_KEY)
     json_to_csv(scores, SCORES_FILE_NAME_FORMATTED, sort_by=PAYOUT_KEY, format_attribute=PAYOUT_KEY,
                 formatter=format_payout)
+
+
+
+
+# Visualizations
+
+def table_scores(df):
+    # Plot the table
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.axis('off')
+    ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
+    plt.show()
+
+def graph_top10(df):
+    # Get the top 10 players by points gained
+    top10 = df.sort_values(by=POINTS_GAINED, ascending=False).head(10)
+
+    # Get names and points gained values
+    names = top10[NAME_KEY]
+    points_gained = top10[POINTS_GAINED]
+
+    # Create the bar graph
+    plt.figure(figsize=(12, 6))
+    plt.bar(names, points_gained, width=0.5)
+    plt.xticks(rotation=90)
+    plt.xlabel('Name')
+    plt.ylabel('Points Gained')
+    plt.title('Top 10 Players by Points Gained')
+
+
+def bleeders_graph(_df):
+    # Sort the dataframe by the "attacks" column
+    df = _df.sort_values(by=ATTACKS_KEY, ascending=False)
+
+    # Get the bleeders
+    bleeders = df[df[POINTS_LOST] > df[POINTS_GAINED]].sort_values(by=POINTS_LOST, ascending=False)
+
+    # Get names and lost values
+    names = bleeders[NAME_KEY]
+    lost = bleeders[POINTS_LOST]
+
+    # Create the bar graph
+    plt.figure(figsize=(12, 6))
+    plt.bar(names, lost, width=0.5)
+    plt.xticks(rotation=90)
+    plt.xlabel('Name')
+    plt.ylabel('Points Lost')
+    plt.title('Bleeders')
+
+    plt.show()
+
+
+
 
 
 # weights of the hit according to hit type
